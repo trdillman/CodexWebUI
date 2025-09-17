@@ -52,9 +52,11 @@ try {
     npm install | Out-Host
 
     Write-Host "Starting Vite dev server at http://127.0.0.1:5173" -ForegroundColor Green
+    Write-Host "OPEN: http://127.0.0.1:5173" -ForegroundColor Yellow
     npm run dev -- --host=127.0.0.1 --port=5173
 }
 finally {
     Pop-Location
 }
+
 
