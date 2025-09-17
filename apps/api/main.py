@@ -1,53 +1,57 @@
-﻿from datetime import datetime, timedelta
-from typing import Any, Dict
-import uuid
+﻿from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+import uuid
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .adapters import sdnext
+
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = APP_DIR.parent.parent
+RUNS_DIR = PROJECT_ROOT / "runs"
+RUNS_DIR.mkdir(parents=True, exist_ok=True)
+
 app = FastAPI(title="CodexWebUI API")
+app.mount("/runs", StaticFiles(directory=str(RUNS_DIR)), name="runs")
 
-class JobCreate(BaseModel):
-    """Minimal payload accepted by the stub pipeline."""
-    type: str = "pipeline.run"
-    payload: Dict[str, Any] = Field(default_factory=dict)
 
-JOBS: Dict[str, Dict[str, Any]] = {}
+class GenerateRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    negative_prompt: Optional[str] = None
+    steps: Optional[int] = Field(None, ge=1)
+    width: Optional[int] = Field(None, ge=64)
+    height: Optional[int] = Field(None, ge=64)
+    sampler_name: Optional[str] = None
+    cfg_scale: Optional[float] = Field(None, ge=1.0)
+    seed: Optional[int] = None
+    model: Optional[str] = None
+
 
 @app.get("/health")
 def health() -> Dict[str, bool]:
-    """Service heartbeat."""
     return {"ok": True}
 
-@app.post("/jobs")
-def create_job(payload: JobCreate) -> Dict[str, str]:
-    """Register a job and return an identifier to poll."""
+
+@app.get("/backend/health")
+def backend_health() -> Dict[str, Any]:
+    return sdnext.health()
+
+
+@app.post("/generate")
+def generate(request: GenerateRequest) -> Dict[str, Any]:
+    payload = request.model_dump(exclude_none=True)
+    image_bytes, meta = sdnext.txt2img(payload)
+
     job_id = uuid.uuid4().hex[:12]
-    JOBS[job_id] = {
+    image_path = RUNS_DIR / f"{job_id}.png"
+    image_path.write_bytes(image_bytes)
+
+    return {
         "id": job_id,
-        "status": "processing",
-        "created_at": datetime.utcnow(),
-        "type": payload.type,
-        "payload": payload.payload,
-        "result": None,
-        "error": None,
+        "image_url": f"/runs/{job_id}.png",
+        "meta": meta,
     }
-    return {"id": job_id}
-
-@app.get("/jobs/{job_id}")
-def get_job(job_id: str) -> Dict[str, Any]:
-    """Return the state of the requested job."""
-    job = JOBS.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    if job["status"] == "processing":
-        if datetime.utcnow() - job["created_at"] >= timedelta(seconds=1):
-            job["status"] = "done"
-            job["result"] = {
-                "message": "Stubbed pipeline result",
-                "echo": job["payload"],
-            }
-
-    response = {key: value for key, value in job.items() if key != "created_at"}
-    return response

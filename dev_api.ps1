@@ -47,14 +47,21 @@ foreach ($initPath in $initPaths) {
 }
 
 $requirementsPath = Join-Path $scriptRoot "apps\api\requirements.txt"
-if (-not (Test-Path -LiteralPath $requirementsPath)) {
-    $reqLines = @(
-        "fastapi==0.112.0",
-        "uvicorn[standard]==0.30.1",
-        "orjson==3.10.7",
-        "pydantic==2.8.2"
-    )
-    Set-Content -Path $requirementsPath -Value $reqLines -Encoding ascii
+$requiredPackages = @(
+    "fastapi==0.112.0",
+    "uvicorn[standard]==0.30.1",
+    "orjson==3.10.7",
+    "pydantic==2.8.2",
+    "httpx==0.27.2"
+)
+$desiredRequirements = ($requiredPackages -join "`n") + "`n"
+$currentRequirements = if (Test-Path -LiteralPath $requirementsPath) {
+    (Get-Content -Raw -Path $requirementsPath -Encoding UTF8) -replace "`r", ""
+} else {
+    ""
+}
+if ($currentRequirements -ne $desiredRequirements) {
+    Set-Content -Path $requirementsPath -Value $requiredPackages -Encoding ascii
 }
 
 $mainPath = Join-Path $scriptRoot "apps\api\main.py"
