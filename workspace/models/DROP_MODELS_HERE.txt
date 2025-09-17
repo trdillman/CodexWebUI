@@ -1,0 +1,1 @@
+Put SD checkpoints in workspace/models/Stable-diffusion/

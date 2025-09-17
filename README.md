@@ -31,3 +31,15 @@ PowerShell -NoExit -ExecutionPolicy Bypass -File .\dev_web.ps1
 ```
 
 Then browse to <http://127.0.0.1:5173>.
+
+## Models workspace
+
+All SD assets live under `workspace/models/`:
+- `workspace/models/Stable-diffusion/` for checkpoints (`.ckpt`, `.safetensors`)
+- `workspace/models/VAE/` for VAEs (`.vae`, `.safetensors`)
+- `workspace/models/Lora/` for LoRAs (`.safetensors`)
+- `workspace/models/ControlNet/` for ControlNet weights (`.pth`, `.safetensors`)
+- `workspace/models/embeddings/` for textual inversion embeddings (`.pt`, `.bin`)
+- `workspace/models/upscale_models/` for upscalers (`.pth`, `.safetensors`)
+
+Drop your downloaded files into the matching folder; scripts and the managed adapter discover them automatically.
