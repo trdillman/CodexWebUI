@@ -23,3 +23,11 @@ Minimal FastAPI API + React web UI harness for local development.
 5. Open the web UI in your browser and submit prompts; it will call the API stub and poll job status every 500 ms.
 
 To stop the servers, close each PowerShell window. Re-running `start_dev.ps1` is safe; each script is idempotent.
+
+## Show the UI
+
+```powershell
+PowerShell -NoExit -ExecutionPolicy Bypass -File .\dev_web.ps1
+```
+
+Then browse to <http://127.0.0.1:5173>.
