@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from .adapters import sdnext
 from .capabilities import get_capabilities
+from .extensions.loader import get_extensions, load_extensions
 from .settings_store import load_settings, save_settings
 
 APP_DIR = Path(__file__).resolve().parent
@@ -20,6 +21,9 @@ RUNS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="CodexWebUI API")
 app.mount("/runs", StaticFiles(directory=str(RUNS_DIR)), name="runs")
+
+
+_ = load_extensions(app)
 
 
 class GenerateRequest(BaseModel):
@@ -88,6 +92,11 @@ def backend_capabilities() -> Dict[str, Any]:
 @app.get("/backend/models")
 def backend_models() -> Dict[str, Any]:
     return sdnext.list_models()
+
+
+@app.get("/extensions")
+def list_extensions() -> Dict[str, Any]:
+    return {"items": get_extensions()}
 
 
 @app.get("/settings")

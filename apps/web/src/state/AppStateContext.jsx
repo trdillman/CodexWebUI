@@ -11,6 +11,8 @@ const initialState = {
   settings: null,
   models: { count: 0, items: [], active: null },
   modelsError: null,
+  extensions: [],
+  extensionsError: null,
   settingsSaving: false,
   settingsError: null,
   generateError: null,
@@ -34,6 +36,8 @@ function reducer(state, action) {
         settings: action.payload.settings,
         models: action.payload.models,
         modelsError: null,
+        extensions: action.payload.extensions,
+        extensionsError: null,
       };
     case "LOAD_ERROR":
       return { ...state, loading: false, ready: false, error: action.error };
@@ -81,6 +85,10 @@ function reducer(state, action) {
         ),
       };
     }
+    case "EXTENSIONS_UPDATE":
+      return { ...state, extensions: action.payload, extensionsError: null };
+    case "EXTENSIONS_ERROR":
+      return { ...state, extensionsError: action.error };
     default:
       return state;
   }
@@ -94,7 +102,7 @@ export function AppStateProvider({ children }) {
   const load = useCallback(async () => {
     dispatch({ type: "LOAD_START" });
     try {
-      const [backendHealth, capabilities, settings, models] = await Promise.all([
+      const [backendHealth, capabilities, settings, models, extensions] = await Promise.all([
         apiGet("/backend/health").catch((error) => ({ ok: false, error: error?.message })),
         apiGet("/backend/capabilities"),
         apiGet("/settings"),
@@ -102,11 +110,17 @@ export function AppStateProvider({ children }) {
           dispatch({ type: "MODELS_ERROR", error });
           return { count: 0, items: [], active: null };
         }),
+        apiGet("/extensions").catch((error) => {
+          dispatch({ type: "EXTENSIONS_ERROR", error });
+          return { items: [] };
+        }),
       ]);
+
+      const extensionItems = Array.isArray(extensions?.items) ? extensions.items : [];
 
       dispatch({
         type: "LOAD_SUCCESS",
-        payload: { backendHealth, capabilities, settings, models },
+        payload: { backendHealth, capabilities, settings, models, extensions: extensionItems },
       });
     } catch (error) {
       dispatch({ type: "LOAD_ERROR", error });
@@ -124,6 +138,18 @@ export function AppStateProvider({ children }) {
       return models;
     } catch (error) {
       dispatch({ type: "MODELS_ERROR", error });
+      throw error;
+    }
+  }, []);
+
+  const refreshExtensions = useCallback(async () => {
+    try {
+      const extensions = await apiGet("/extensions");
+      const items = Array.isArray(extensions?.items) ? extensions.items : [];
+      dispatch({ type: "EXTENSIONS_UPDATE", payload: items });
+      return items;
+    } catch (error) {
+      dispatch({ type: "EXTENSIONS_ERROR", error });
       throw error;
     }
   }, []);
@@ -185,10 +211,11 @@ export function AppStateProvider({ children }) {
       apiBase: API_BASE,
       refresh: load,
       refreshModels,
+      refreshExtensions,
       saveSettings,
       generate,
     }),
-    [state, load, refreshModels, saveSettings, generate],
+    [state, load, refreshModels, refreshExtensions, saveSettings, generate],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
@@ -201,3 +228,6 @@ export function useAppState() {
   }
   return ctx;
 }
+
+
+

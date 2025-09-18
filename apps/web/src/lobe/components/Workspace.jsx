@@ -505,7 +505,7 @@ function SettingsTab() {
 
         <footer className="lobe-actions">
           <button type="submit" className="lobe-button lobe-button--primary" disabled={settingsSaving}>
-            {settingsSaving ? "Saving…" : "Save settings"}
+            {settingsSaving ? "Saving..." : "Save settings"}
           </button>
           <button
             type="button"
@@ -521,21 +521,133 @@ function SettingsTab() {
   );
 }
 
+
 function ExtensionsTab() {
+  const { extensions, extensionsError, apiBase, refreshExtensions } = useAppState();
+  const [selectedName, setSelectedName] = useState(() => (extensions?.[0]?.name ?? null));
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!extensions || extensions.length === 0) {
+      setSelectedName(null);
+      return;
+    }
+    setSelectedName((prev) => (prev && extensions.some((ext) => ext.name === prev) ? prev : extensions[0].name));
+  }, [extensions]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshExtensions();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const selectedExtension = extensions?.find((ext) => ext.name === selectedName) ?? null;
+  const staticSrc = selectedExtension?.staticUrl ? `${apiBase}${selectedExtension.staticUrl}/index.html` : null;
+  const apiEndpoint = selectedExtension?.apiUrl ? `${apiBase}${selectedExtension.apiUrl}` : null;
+
+  const badgeSpecs = selectedExtension
+    ? [
+        selectedExtension.hasStatic && { label: 'Static', tone: 'static' },
+        selectedExtension.hasApi && { label: 'API', tone: 'api' },
+        selectedExtension.error && { label: 'Error', tone: 'error', title: selectedExtension.error },
+      ].filter(Boolean)
+    : [];
+
   return (
     <section className="lobe-workspace lobe-scroll">
-      <header className="lobe-section-header">
-        <h2>{TAB_COPY.extensions.title}</h2>
-        <p>{TAB_COPY.extensions.subtitle}</p>
+      <header className="lobe-section-header lobe-section-header--row">
+        <div>
+          <h2>{TAB_COPY.extensions.title}</h2>
+          <p>{TAB_COPY.extensions.subtitle}</p>
+        </div>
+        <button type="button" className="lobe-button" onClick={onRefresh} disabled={refreshing}>
+          {refreshing ? 'Refreshing...' : 'Rescan'}
+        </button>
       </header>
-      <article className="lobe-card lobe-card--extension">
-        <h3>Bridge in progress</h3>
-        <p>The loader will surface static mounts and FastAPI shims from the extensions workspace in the upcoming step.</p>
-        <footer>Sample entries will appear automatically once the bridge lands.</footer>
-      </article>
+      {extensionsError && (
+        <div className="lobe-alert lobe-alert--error">
+          Failed to load extensions: {extensionsError.message || String(extensionsError)}
+        </div>
+      )}
+      <div className="lobe-extensions">
+        <aside className="lobe-extensions__list" role="tablist" aria-label="Available extensions">
+          {extensions?.length ? (
+            extensions.map((ext) => {
+              const isActive = ext.name === selectedName;
+              return (
+                <button
+                  key={ext.name}
+                  type="button"
+                  className={`lobe-extensions__item ${isActive ? 'is-active' : ''}`}
+                  onClick={() => setSelectedName(ext.name)}
+                  aria-pressed={isActive}
+                >
+                  <span className="lobe-extensions__item-name">{ext.name}</span>
+                  <span className="lobe-extensions__badges">
+                    {ext.hasStatic && <span className="lobe-badge lobe-badge--static">Static</span>}
+                    {ext.hasApi && <span className="lobe-badge lobe-badge--api">API</span>}
+                    {ext.error && <span className="lobe-badge lobe-badge--error">Error</span>}
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <p className="lobe-empty">Drop extension folders into <code>workspace/extensions/</code>.</p>
+          )}
+        </aside>
+        <div className="lobe-extensions__detail">
+          {selectedExtension ? (
+            <article className="lobe-card lobe-card--extension">
+              <header className="lobe-extension__header">
+                <h3>{selectedExtension.name}</h3>
+                <div className="lobe-extensions__badges">
+                  {badgeSpecs.map((badge) => (
+                    <span
+                      key={badge.label}
+                      className={`lobe-badge lobe-badge--${badge.tone}`}
+                      title={badge.title}
+                    >
+                      {badge.label}
+                    </span>
+                  ))}
+                </div>
+              </header>
+              {selectedExtension.error && (
+                <div className="lobe-alert lobe-alert--error">{selectedExtension.error}</div>
+              )}
+              {staticSrc ? (
+                <div className="lobe-extension__frame">
+                  <iframe title={`${selectedExtension.name} static panel`} src={staticSrc} />
+                </div>
+              ) : (
+                <p className="lobe-empty">No static panel was bundled with this extension.</p>
+              )}
+              <div className="lobe-extension__meta">
+                {apiEndpoint ? (
+                  <p>API base URL: <code>{apiEndpoint}</code></p>
+                ) : (
+                  <p className="lobe-empty">No API router exported.</p>
+                )}
+                {selectedExtension.staticUrl && (
+                  <p>Static mount: <code>{selectedExtension.staticUrl}</code></p>
+                )}
+              </div>
+            </article>
+          ) : (
+            <article className="lobe-card lobe-card--extension">
+              <h3>Awaiting extensions</h3>
+              <p>No extension selected. Choose one from the list on the left to preview its UI or API endpoints.</p>
+            </article>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
+
 
 function HistoryTab() {
   const { history } = useAppState();
@@ -581,3 +693,8 @@ export function Workspace() {
 
   return <GenerateTab />;
 }
+
+
+
+
+
