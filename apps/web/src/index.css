@@ -1,62 +1,68 @@
-﻿:root {
-  font-family: "Segoe UI", system-ui, sans-serif;
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+  background-color: #f4f6fb;
+  color: #11121a;
+  --lobe-bg: #f4f6fb;
+  --lobe-bg-elevated: #ffffff;
+  --lobe-border: rgba(15, 23, 42, 0.08);
+  --lobe-foreground: #131627;
+  --lobe-muted: #5b6170;
+  --lobe-accent-blue: linear-gradient(135deg, #4c6ef5, #5f8cff);
+  --lobe-accent-orange: linear-gradient(135deg, #f59f00, #ff922b);
+  --lobe-accent-green: linear-gradient(135deg, #2f9e44, #51cf66);
+  --lobe-accent-purple: linear-gradient(135deg, #845ef7, #9775fa);
+  --lobe-gap: 1.5rem;
+  --lobe-radius: 16px;
+  --lobe-panel-shadow: 0 22px 45px rgba(15, 23, 42, 0.08);
+  --lobe-sidebar-width: var(--lobe-sidebar-width-expanded, 280px);
+  --lobe-right-panel-width: 360px;
+}
+
+[data-theme="dark"] {
   color-scheme: dark;
-  background-color: #0b0b0f;
-  color: #f5f5f5;
+  background-color: #080a13;
+  color: #f7f9ff;
+  --lobe-bg: #080a13;
+  --lobe-bg-elevated: #111726;
+  --lobe-border: rgba(148, 163, 184, 0.1);
+  --lobe-foreground: #f7f9ff;
+  --lobe-muted: #96a0bd;
+  --lobe-panel-shadow: 0 25px 40px rgba(3, 7, 18, 0.45);
+}
+
+[data-compact="true"] {
+  --lobe-gap: 0.75rem;
+  --lobe-radius: 12px;
+}
+
+html, body {
+  height: 100%;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--lobe-bg);
+  color: var(--lobe-foreground);
 }
 
+button,
+input,
+select,
 textarea {
   font: inherit;
+  color: inherit;
 }
 
-button {
-  font: inherit;
-  cursor: pointer;
+a {
+  color: inherit;
 }
 
-.app-container {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 3rem 1.5rem 4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.app-header h1 {
-  margin: 0 0 0.5rem;
-  font-size: clamp(2rem, 5vw, 2.75rem);
-}
-
-.app-header p {
-  margin: 0;
-  color: #9ea4b8;
-}
-
-.app-status {
-  padding: 1rem;
-  border-radius: 12px;
-  background: #121626;
-  border: 1px solid #22283a;
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.app-instructions {
-  padding: 1rem;
-  border-radius: 12px;
-  background: #10131f;
-  border: 1px solid #1e2335;
-}
-
-.app-instructions code {
-  background: #1f2540;
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
+::selection {
+  background: rgba(124, 173, 255, 0.35);
 }
