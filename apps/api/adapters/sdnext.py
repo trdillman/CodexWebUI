@@ -1,9 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import base64
 import json
 from functools import lru_cache
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
 
 import httpx
@@ -11,7 +12,7 @@ from fastapi import HTTPException, status
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
 DEFAULT_BASE_URL = "http://127.0.0.1:7860"
-TIMEOUT = httpx.Timeout(10.0)
+DEFAULT_TIMEOUT = 20.0
 
 
 def _load_config() -> Dict[str, Any]:
@@ -45,7 +46,14 @@ def _base_url() -> str:
 
 
 def _http_client() -> httpx.Client:
-    return httpx.Client(timeout=TIMEOUT)
+    cfg = _config()
+    timeout_raw = cfg.get('timeout') if isinstance(cfg, dict) else None
+    try:
+        timeout_value = float(timeout_raw) if timeout_raw is not None else None
+    except (TypeError, ValueError):
+        timeout_value = None
+    timeout = httpx.Timeout(timeout_value or DEFAULT_TIMEOUT)
+    return httpx.Client(timeout=timeout)
 
 
 def _summarize_models(payload: Any) -> Any:
@@ -154,6 +162,8 @@ def txt2img(params: Dict[str, Any]) -> Tuple[bytes, Dict[str, Any]]:
 
     return image_bytes, meta
 
+
+
 def list_models() -> Dict[str, Any]:
     base = _base_url()
     with _http_client() as client:
@@ -182,12 +192,30 @@ def list_models() -> Dict[str, Any]:
                 name = entry.get("model_name") or entry.get("title") or entry.get("hash")
                 if not name:
                     continue
+                filename = entry.get("filename")
+                resolved_path = None
+                size_bytes = None
+                modified = None
+                if filename:
+                    path_candidate = Path(filename)
+                    try:
+                        resolved = path_candidate if path_candidate.is_absolute() else Path(filename).resolve()
+                        if resolved.exists():
+                            stat = resolved.stat()
+                            resolved_path = str(resolved)
+                            size_bytes = stat.st_size
+                            modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+                    except OSError:
+                        resolved_path = str(path_candidate)
                 items.append(
                     {
                         "name": entry.get("model_name") or entry.get("title") or name,
                         "title": entry.get("title") or entry.get("model_name") or name,
                         "hash": entry.get("hash"),
-                        "filename": entry.get("filename"),
+                        "filename": filename,
+                        "path": resolved_path,
+                        "sizeBytes": size_bytes,
+                        "modified": modified,
                     }
                 )
 
@@ -201,4 +229,8 @@ def list_models() -> Dict[str, Any]:
         except (httpx.HTTPError, json.JSONDecodeError):
             active = None
 
+        for item in items:
+            item["isActive"] = bool(active and item.get("name") and active.startswith(item["name"]))
+
         return {"count": len(items), "items": items, "active": active}
+

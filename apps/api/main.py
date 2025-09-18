@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -64,6 +64,10 @@ class ModelSettingsUpdate(BaseModel):
     name: Optional[str] = None
 
 
+class ModelDefaultRequest(BaseModel):
+    name: str
+
+
 class UiSettingsUpdate(BaseModel):
     mobile_compact: Optional[bool] = None
 
@@ -94,7 +98,26 @@ def backend_capabilities() -> Dict[str, Any]:
 
 @app.get("/backend/models")
 def backend_models() -> Dict[str, Any]:
-    return sdnext.list_models()
+    models = sdnext.list_models()
+    settings = load_settings()
+    default_name = None
+    if isinstance(settings, dict):
+        default_name = settings.get("model", {}).get("name")
+    models["default"] = default_name
+    return models
+
+
+@app.post("/backend/models/default")
+def set_default_model(payload: ModelDefaultRequest) -> Dict[str, Any]:
+    models = sdnext.list_models()
+    valid_names = {item.get("name") for item in models.get("items", []) if item.get("name")}
+    if payload.name not in valid_names:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
+
+    current = load_settings()
+    current.setdefault("model", {})["name"] = payload.name
+    save_settings(current)
+    return {"default": payload.name, "requires_restart": True}
 
 
 @app.get("/jobs")

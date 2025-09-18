@@ -9,7 +9,7 @@ const initialState = {
   backendHealth: null,
   capabilities: null,
   settings: null,
-  models: { count: 0, items: [], active: null },
+  models: { count: 0, items: [], active: null, default: null },
   modelsError: null,
   extensions: [],
   extensionsError: null,
@@ -251,6 +251,25 @@ export function AppStateProvider({ children }) {
     }
   }, []);
 
+  const setDefaultModel = useCallback(
+    async (name) => {
+      try {
+        await apiPost("/backend/models/default", { name });
+        const models = await refreshModels();
+        const updatedSettings = {
+          ...(state.settings ?? {}),
+          model: { ...(state.settings?.model ?? {}), name },
+        };
+        dispatch({ type: "SETTINGS_SAVE_SUCCESS", payload: updatedSettings });
+        return models;
+      } catch (error) {
+        dispatch({ type: "MODELS_ERROR", error });
+        throw error;
+      }
+    },
+      refreshModels,
+      setDefaultModel,
+  );
   const refreshExtensions = useCallback(async () => {
     try {
       const response = await apiGet("/extensions");
@@ -339,12 +358,13 @@ export function AppStateProvider({ children }) {
       apiBase: API_BASE,
       refresh: load,
       refreshModels,
+      setDefaultModel,
       refreshExtensions,
       saveSettings,
       generate,
       cancelJob,
     }),
-    [state, load, refreshModels, refreshExtensions, saveSettings, generate, cancelJob],
+    [state, load, refreshModels, setDefaultModel, refreshExtensions, saveSettings, generate, cancelJob],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
@@ -357,3 +377,6 @@ export function useAppState() {
   }
   return ctx;
 }
+
+
+

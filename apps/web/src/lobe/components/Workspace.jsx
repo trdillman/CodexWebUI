@@ -287,10 +287,11 @@ function GenerateTab() {
 }
 
 function SettingsTab() {
-  const { capabilities, settings, saveSettings, settingsSaving, settingsError } = useAppState();
+  const { capabilities, settings, models, setDefaultModel, saveSettings, settingsSaving, settingsError } = useAppState();
   const [draft, setDraft] = useState(settings);
   const [saveMessage, setSaveMessage] = useState(null);
-  const [showRelaunchHint, setShowRelaunchHint] = useState(false);
+  const [defaultMessage, setDefaultMessage] = useState(null);
+  const [settingDefault, setSettingDefault] = useState(null);
 
   useEffect(() => {
     setDraft(settings);
@@ -305,7 +306,7 @@ function SettingsTab() {
     return (
       <section className="lobe-workspace lobe-scroll">
         <div className="lobe-card">
-          <p>Loading settings…</p>
+          <p>Loading settings...</p>
         </div>
       </section>
     );
@@ -330,12 +331,35 @@ function SettingsTab() {
   const quantizeCapability = capabilities?.quantize ?? {};
   const backendCapability = capabilities?.backends ?? {};
   const extras = capabilities?.extras ?? {};
+  const modelItems = models?.items ?? [];
+  const currentDefaultModel = models?.default ?? settings?.model?.name ?? null;
 
   const deepEqual = (left, right) => JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
   const relaunchRequired = useMemo(() => {
     if (!settings) return false;
     return !deepEqual(draft.compile, settings.compile) || !deepEqual(draft.quantize, settings.quantize);
   }, [draft, settings]);
+
+  const formatSize = (value) => {
+    if (!value || Number.isNaN(Number(value))) return "-";
+    const mega = Number(value) / (1024 * 1024);
+    if (!Number.isFinite(mega)) return "-";
+    if (mega >= 1024) {
+      return `${(mega / 1024).toFixed(1)} GB`;
+    }
+    return `${mega.toFixed(1)} MB`;
+  };
+
+  const formatModified = (value) => {
+    if (!value) return "-";
+    try {
+      const dt = new Date(value);
+      if (Number.isNaN(dt.getTime())) return value;
+      return dt.toLocaleString();
+    } catch (_err) {
+      return value;
+    }
+  };
 
   const onSubmit = async (event) => {
     event.preventDefault();
@@ -344,7 +368,7 @@ function SettingsTab() {
       await saveSettings(draft);
       setSaveMessage("Settings saved");
       if (relaunchRequired) {
-        setShowRelaunchHint(true);
+        setDefaultMessage(null);
       }
     } catch (error) {
       setSaveMessage(error.message || "Unable to save settings");
@@ -359,13 +383,6 @@ function SettingsTab() {
     });
   };
 
-  const buildQuantizeLabel = (option) => {
-    const value = quantizeCapability[option.id];
-    if (option.id === null) return option.label;
-    if (value === "cpu") return `${option.label} (CPU mode)`;
-    return option.label;
-  };
-
   const quantizeDisabledReason = (option) => {
     const value = quantizeCapability[option.id];
     if (option.id === null) return undefined;
@@ -374,6 +391,19 @@ function SettingsTab() {
     if (value === false || value == null) return "Not detected";
     if (typeof value === "string") return value;
     return undefined;
+  };
+
+  const onSetDefaultModel = async (name) => {
+    setDefaultMessage(null);
+    setSettingDefault(name);
+    try {
+      await setDefaultModel(name);
+      setDefaultMessage({ tone: "success", message: `Default model set to ${name}. Restart required.` });
+    } catch (error) {
+      setDefaultMessage({ tone: "error", message: error.message || "Unable to set default model" });
+    } finally {
+      setSettingDefault(null);
+    }
   };
 
   return (
@@ -389,13 +419,12 @@ function SettingsTab() {
       )}
       {relaunchRequired && (
         <div className="lobe-alert lobe-alert--warning" role="alert">
-          Compile or quantization changes require restarting SD.Next. After saving, run{' '}
-          <code>.\scripts\sdnext_stop.ps1</code>{' '}followed by{' '}<code>.\scripts\sdnext_run.ps1</code>{' '}to apply the new settings.
+          Compile or quantization changes require restarting SD.Next. After saving, run <code>.\scripts\sdnext_stop.ps1</code> followed by <code>.\scripts\sdnext_run.ps1</code> to apply the new settings.
         </div>
       )}
-      {showRelaunchHint && !relaunchRequired && (
-        <div className="lobe-alert lobe-alert--success">
-          Backend restart instructions applied. Run the restart scripts when you are ready.
+      {defaultMessage && (
+        <div className={`lobe-alert ${defaultMessage.tone === "success" ? "lobe-alert--success" : "lobe-alert--error"}`}>
+          {defaultMessage.message}
         </div>
       )}
       <form className="lobe-form" onSubmit={onSubmit}>
@@ -540,6 +569,63 @@ function SettingsTab() {
           )}
         </section>
 
+        <section className="lobe-card">
+          <header>
+            <h3>Models</h3>
+            <p>View discovered checkpoints and choose a default for SD.Next.</p>
+          </header>
+          {modelItems.length === 0 ? (
+            <p className="lobe-empty">No checkpoints detected. Drop files into <code>workspace/models/Stable-diffusion/</code>.</p>
+          ) : (
+            <div className="lobe-models">
+              {modelItems.map((model) => {
+                const isDefault = currentDefaultModel && model.name === currentDefaultModel;
+                const isActive = model.isActive;
+                return (
+                  <article key={model.name} className={`lobe-model ${isDefault ? "is-default" : ""}`}>
+                    <div className="lobe-model__head">
+                      <div>
+                        <strong>{model.title}</strong>
+                        <p className="lobe-model__meta">{model.name}</p>
+                      </div>
+                      <div className="lobe-model__badges">
+                        {isActive && <span className="lobe-badge lobe-badge--api">Active</span>}
+                        {isDefault && <span className="lobe-badge lobe-badge--green">Default</span>}
+                      </div>
+                    </div>
+                    <dl className="lobe-model__details">
+                      <div>
+                        <dt>Size</dt>
+                        <dd>{formatSize(model.sizeBytes)}</dd>
+                      </div>
+                      <div>
+                        <dt>Modified</dt>
+                        <dd>{formatModified(model.modified)}</dd>
+                      </div>
+                      {model.path && (
+                        <div className="lobe-model__path" title={model.path}>
+                          <dt>Path</dt>
+                          <dd>{model.path}</dd>
+                        </div>
+                      )}
+                    </dl>
+                    <div className="lobe-model__actions">
+                      <button
+                        type="button"
+                        className="lobe-button lobe-button--mini"
+                        onClick={() => onSetDefaultModel(model.name)}
+                        disabled={Boolean(settingDefault) || isDefault}
+                      >
+                        {settingDefault === model.name ? "Setting..." : isDefault ? "Default" : "Set as default"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         <footer className="lobe-actions">
           <button type="submit" className="lobe-button lobe-button--primary" disabled={settingsSaving}>
             {settingsSaving ? "Saving..." : "Save settings"}
@@ -556,7 +642,8 @@ function SettingsTab() {
       </form>
     </section>
   );
-}function ExtensionsTab() {
+}
+function ExtensionsTab() {
   const { extensions, extensionsError, apiBase, refreshExtensions } = useAppState();
   const [selectedName, setSelectedName] = useState(() => (extensions?.[0]?.name ?? null));
   const [refreshing, setRefreshing] = useState(false);
