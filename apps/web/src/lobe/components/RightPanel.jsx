@@ -1,22 +1,18 @@
 import { useMemo } from "react";
 
+import { useAppState } from "../../state/AppStateContext";
 import { useLobeSettings } from "../LobeContext";
 
-const PREVIEW_STUB = {
-  prompt: "A cinematic render of the Codex laboratory, volumetric lighting",
-  modifiers: ["4k", "sharp focus", "octane render"],
-  seed: 902104,
-  scheduler: "DPM++",
+const STATUS_COLORS = {
+  done: "var(--lobe-accent-green)",
+  running: "var(--lobe-accent-orange)",
+  error: "var(--lobe-accent-purple)",
 };
-
-const HISTORY_STACK = [
-  { id: "job-9031", status: "done", label: "Loft studio â€¢ 512x768" },
-  { id: "job-9030", status: "done", label: "Heroic android â€¢ 768x768" },
-  { id: "job-9029", status: "queued", label: "Neon portrait â€¢ 512x512" },
-];
 
 export function RightPanel() {
   const { activeTab } = useLobeSettings();
+  const { lastResult, history, generating, apiBase } = useAppState();
+
   const accent = useMemo(() => {
     if (activeTab === "extensions") return "var(--lobe-accent-purple)";
     if (activeTab === "history") return "var(--lobe-accent-green)";
@@ -24,52 +20,74 @@ export function RightPanel() {
     return "var(--lobe-accent-blue)";
   }, [activeTab]);
 
+  const recentHistory = history.slice(0, 5);
+  const previewImage = lastResult?.imageUrl ? `${apiBase}${lastResult.imageUrl}` : null;
+
   return (
     <aside className="lobe-right-panel lobe-scroll" aria-label="Preview and history">
       <section className="lobe-card lobe-card--preview">
         <header>
           <h2>Preview</h2>
-          <span className="lobe-badge" style={{ background: accent }}>Live</span>
+          <span className="lobe-badge" style={{ background: accent }}>
+            {generating ? "Running" : lastResult ? "Ready" : "Idle"}
+          </span>
         </header>
         <div className="lobe-preview">
-          <div className="lobe-preview__image" role="img" aria-label="Preview placeholder" />
-          <dl className="lobe-preview__meta">
-            <div>
-              <dt>Prompt</dt>
-              <dd>{PREVIEW_STUB.prompt}</dd>
-            </div>
-            <div>
-              <dt>Modifiers</dt>
-              <dd>{PREVIEW_STUB.modifiers.join(", ")}</dd>
-            </div>
-            <div className="lobe-preview__meta-grid">
+          {previewImage ? (
+            <img className="lobe-preview__image" src={previewImage} alt="Latest generation" />
+          ) : (
+            <div className="lobe-preview__image-placeholder" aria-label="Preview placeholder" />
+          )}
+          {lastResult && (
+            <dl className="lobe-preview__meta">
               <div>
-                <dt>Seed</dt>
-                <dd>{PREVIEW_STUB.seed}</dd>
+                <dt>Prompt</dt>
+                <dd>{lastResult.prompt}</dd>
               </div>
-              <div>
-                <dt>Scheduler</dt>
-                <dd>{PREVIEW_STUB.scheduler}</dd>
-              </div>
-            </div>
-          </dl>
+              {lastResult.negativePrompt && (
+                <div>
+                  <dt>Negative</dt>
+                  <dd>{lastResult.negativePrompt}</dd>
+                </div>
+              )}
+              {lastResult.meta && (
+                <div className="lobe-preview__meta-grid">
+                  <div>
+                    <dt>Sampler</dt>
+                    <dd>{lastResult.meta?.sampler_name || "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>Steps</dt>
+                    <dd>{lastResult.meta?.steps || "-"}</dd>
+                  </div>
+                </div>
+              )}
+            </dl>
+          )}
         </div>
       </section>
       <section className="lobe-card lobe-card--history">
         <header>
           <h2>Recent Runs</h2>
         </header>
-        <ul className="lobe-right-history">
-          {HISTORY_STACK.map((item) => (
-            <li key={item.id} className={`lobe-right-history__item is-${item.status}`}>
-              <span className="lobe-right-history__dot" aria-hidden="true" />
-              <div className="lobe-right-history__body">
-                <strong>{item.label}</strong>
-                <span>{item.status === "done" ? "Completed" : "Queued"}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {recentHistory.length === 0 ? (
+          <p className="lobe-empty">No runs yet</p>
+        ) : (
+          <ul className="lobe-right-history">
+            {recentHistory.map((item) => {
+              const color = STATUS_COLORS[item.status] || "var(--lobe-accent-orange)";
+              return (
+                <li key={item.clientId} className={`lobe-right-history__item is-${item.status}`}>
+                  <span className="lobe-right-history__dot" style={{ background: color }} aria-hidden="true" />
+                  <div className="lobe-right-history__body">
+                    <strong>{item.prompt}</strong>
+                    <span>{item.status}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
     </aside>
   );

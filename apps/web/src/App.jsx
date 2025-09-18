@@ -1,10 +1,13 @@
+import { AppStateProvider } from "./state/AppStateContext";
 import { LobeProvider } from "./lobe/LobeProvider";
 import { LobeShell } from "./lobe/LobeShell";
 
 export default function App() {
   return (
-    <LobeProvider>
-      <LobeShell />
-    </LobeProvider>
+    <AppStateProvider>
+      <LobeProvider>
+        <LobeShell />
+      </LobeProvider>
+    </AppStateProvider>
   );
 }

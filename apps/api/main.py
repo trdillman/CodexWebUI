@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import copy
 import uuid
@@ -85,6 +85,11 @@ def backend_capabilities() -> Dict[str, Any]:
     return get_capabilities()
 
 
+@app.get("/backend/models")
+def backend_models() -> Dict[str, Any]:
+    return sdnext.list_models()
+
+
 @app.get("/settings")
 def get_settings() -> Dict[str, Any]:
     return load_settings()
@@ -141,4 +146,5 @@ def generate(request: GenerateRequest) -> Dict[str, Any]:
         "meta": response_meta,
         "settings": generation_context,
     }
+
 

@@ -1,8 +1,11 @@
+import { useMemo } from "react";
+
+import { useAppState } from "../../state/AppStateContext";
 import { useLobeSettings } from "../LobeContext";
 
 const ThemeButtons = [
-  { id: "light", icon: "â˜€ï¸", label: "Light" },
-  { id: "dark", icon: "ðŸŒ™", label: "Dark" },
+  { id: "light", icon: "??", label: "Light" },
+  { id: "dark", icon: "??", label: "Dark" },
 ];
 
 export function TopBar() {
@@ -15,6 +18,13 @@ export function TopBar() {
     showRightPanel,
     setShowRightPanel,
   } = useLobeSettings();
+  const { backendHealth, loading } = useAppState();
+
+  const backendStatus = useMemo(() => {
+    if (loading) return { label: "Connecting�", tone: "pending" };
+    if (!backendHealth || backendHealth.ok === false) return { label: "Backend offline", tone: "error" };
+    return { label: "Backend ready", tone: "ok" };
+  }, [backendHealth, loading]);
 
   return (
     <header className="lobe-topbar">
@@ -23,6 +33,7 @@ export function TopBar() {
         <p>Forge-style creative workspace powered by the Lobe layout.</p>
       </div>
       <div className="lobe-topbar__controls">
+        <div className={`lobe-status lobe-status--${backendStatus.tone}`}>{backendStatus.label}</div>
         <div className="lobe-control-group" role="group" aria-label="Theme mode">
           {ThemeButtons.map((btn) => (
             <button
@@ -43,7 +54,7 @@ export function TopBar() {
             onClick={toggleTheme}
             title="Toggle theme"
           >
-            <span aria-hidden="true">â‡†</span>
+            <span aria-hidden="true">?</span>
           </button>
         </div>
         <button

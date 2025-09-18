@@ -153,3 +153,52 @@ def txt2img(params: Dict[str, Any]) -> Tuple[bytes, Dict[str, Any]]:
             meta = {"raw_info": info}
 
     return image_bytes, meta
+
+def list_models() -> Dict[str, Any]:
+    base = _base_url()
+    with _http_client() as client:
+        try:
+            response = client.get(f"{base}/sdapi/v1/sd-models")
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Unable to fetch models from SD.Next",
+            ) from exc
+
+        try:
+            raw_models = response.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Invalid SD.Next model list",
+            ) from exc
+
+        items = []
+        if isinstance(raw_models, list):
+            for entry in raw_models:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("model_name") or entry.get("title") or entry.get("hash")
+                if not name:
+                    continue
+                items.append(
+                    {
+                        "name": entry.get("model_name") or entry.get("title") or name,
+                        "title": entry.get("title") or entry.get("model_name") or name,
+                        "hash": entry.get("hash"),
+                        "filename": entry.get("filename"),
+                    }
+                )
+
+        active = None
+        try:
+            options_response = client.get(f"{base}/sdapi/v1/options")
+            options_response.raise_for_status()
+            options_payload = options_response.json()
+            if isinstance(options_payload, dict):
+                active = options_payload.get("sd_model_checkpoint")
+        except (httpx.HTTPError, json.JSONDecodeError):
+            active = None
+
+        return {"count": len(items), "items": items, "active": active}
