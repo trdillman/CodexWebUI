@@ -18,3 +18,45 @@ button {
   font: inherit;
   cursor: pointer;
 }
+
+.app-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.app-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+}
+
+.app-header p {
+  margin: 0;
+  color: #9ea4b8;
+}
+
+.app-status {
+  padding: 1rem;
+  border-radius: 12px;
+  background: #121626;
+  border: 1px solid #22283a;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.app-instructions {
+  padding: 1rem;
+  border-radius: 12px;
+  background: #10131f;
+  border: 1px solid #1e2335;
+}
+
+.app-instructions code {
+  background: #1f2540;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
