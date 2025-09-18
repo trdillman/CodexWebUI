@@ -1,0 +1,69 @@
+{
+  "environment": {
+    "python": "cp311",
+    "platform": "win_amd64",
+    "cuda": "cu128"
+  },
+  "packages": {
+    "torch": {
+      "package": "torch",
+      "required_version": "2.8.0",
+      "local_wheel": "torch-2.8.0+cu128-cp311-cp311-win_amd64.whl",
+      "python_ok": true,
+      "platform_ok": true,
+      "cuda_ok": true,
+      "online_compat_ok": true,
+      "source_link": "https://pytorch.org/get-started/locally/",
+      "verdict": "OK",
+      "notes": "PyTorch 2.8.0 supports CUDA 12.8 and torch.compile on Windows"
+    },
+    "torchvision": {
+      "package": "torchvision",
+      "required_version": "0.23.0",
+      "local_wheel": "torchvision-0.23.0+cu128-cp311-cp311-win_amd64.whl",
+      "python_ok": true,
+      "platform_ok": true,
+      "cuda_ok": true,
+      "online_compat_ok": true,
+      "source_link": "https://pytorch.org/get-started/locally/",
+      "verdict": "OK",
+      "notes": "TorchVision 0.23.0 is compatible with PyTorch 2.8.0 on Windows/CUDA12.8"
+    },
+    "torchaudio": {
+      "package": "torchaudio",
+      "required_version": "2.8.0",
+      "local_wheel": null,
+      "python_ok": false,
+      "platform_ok": false,
+      "cuda_ok": false,
+      "online_compat_ok": true,
+      "source_link": "https://pytorch.org/get-started/locally/",
+      "verdict": "MISSING",
+      "notes": "TorchAudio 2.8.0 is compatible with PyTorch 2.8.0 on Windows/CUDA12.8"
+    },
+    "triton": {
+      "package": "triton",
+      "required_version": "3.4.0",
+      "local_wheel": "triton_windows-3.4.0.post20-cp311-cp311-win_amd64.whl",
+      "python_ok": true,
+      "platform_ok": true,
+      "cuda_ok": true,
+      "online_compat_ok": true,
+      "source_link": "https://github.com/openai/triton/releases",
+      "verdict": "OK",
+      "notes": "Triton 3.4.0 is compatible with PyTorch 2.8.0 on Windows/CUDA12.8"
+    },
+    "sageattention": {
+      "package": "sageattention",
+      "required_version": "2.2.0",
+      "local_wheel": "sageattention-2.2.0+cu128torch2.8.0.post2-cp39-abi3-win_amd64.whl",
+      "python_ok": true,
+      "platform_ok": true,
+      "cuda_ok": true,
+      "online_compat_ok": true,
+      "source_link": "https://github.com/facebookresearch/sage-attention",
+      "verdict": "OK (version mismatch but compatible)",
+      "notes": "Sage-Attention 2.2.0 supports PyTorch 2.8.0 with CUDA 12.8"
+    }
+  }
+}
