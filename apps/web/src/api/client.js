@@ -57,3 +57,13 @@ export async function apiPost(path, body, options = {}) {
   });
   return handleResponse(response);
 }
+export async function apiDelete(path, options = {}) {
+  const response = await fetch(buildUrl(path), {
+    method: "DELETE",
+    cache: "no-store",
+    headers: JSON_HEADERS,
+    ...options,
+  });
+  return handleResponse(response);
+}
+

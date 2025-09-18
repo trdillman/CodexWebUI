@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from .adapters import sdnext
 from .capabilities import get_capabilities
 from .extensions.loader import get_extensions, load_extensions
+from .queue import JobQueue
 from .settings_store import load_settings, save_settings
 
 APP_DIR = Path(__file__).resolve().parent
@@ -23,6 +24,7 @@ app = FastAPI(title="CodexWebUI API")
 app.mount("/runs", StaticFiles(directory=str(RUNS_DIR)), name="runs")
 
 
+job_queue = JobQueue(RUNS_DIR, load_settings)
 _ = load_extensions(app)
 
 
@@ -36,6 +38,7 @@ class GenerateRequest(BaseModel):
     cfg_scale: Optional[float] = Field(None, ge=1.0)
     seed: Optional[int] = None
     model: Optional[str] = None
+    queue: Optional[bool] = True
 
 
 class CompileSettingsUpdate(BaseModel):
@@ -94,6 +97,29 @@ def backend_models() -> Dict[str, Any]:
     return sdnext.list_models()
 
 
+@app.get("/jobs")
+def list_jobs() -> Dict[str, Any]:
+    return {"items": job_queue.list_jobs()}
+
+
+@app.get("/jobs/{job_id}")
+def get_job(job_id: str) -> Dict[str, Any]:
+    return job_queue.get_job(job_id)
+
+
+@app.post("/jobs")
+def create_job(request: GenerateRequest) -> Dict[str, Any]:
+    payload = request.model_dump(exclude_none=True)
+    payload.pop("queue", None)
+    job = job_queue.enqueue(payload)
+    return {"job": job}
+
+
+@app.delete("/jobs/{job_id}")
+def cancel_job(job_id: str) -> Dict[str, Any]:
+    return job_queue.cancel_job(job_id)
+
+
 @app.get("/extensions")
 def list_extensions() -> Dict[str, Any]:
     return {"items": get_extensions()}
@@ -129,31 +155,13 @@ def update_settings(payload: SettingsUpdate) -> Dict[str, Any]:
 @app.post("/generate")
 def generate(request: GenerateRequest) -> Dict[str, Any]:
     payload = request.model_dump(exclude_none=True)
-    settings_snapshot = load_settings()
-    generation_context = {
-        "compile": settings_snapshot.get("compile"),
-        "quantize": settings_snapshot.get("quantize"),
-        "attention": settings_snapshot.get("attention"),
-        "performance": settings_snapshot.get("performance"),
-        "model": settings_snapshot.get("model"),
-    }
+    queue_mode = payload.pop("queue", True)
 
+    if queue_mode:
+        job = job_queue.enqueue(payload)
+        return {"job": job}
 
-    image_bytes, meta = sdnext.txt2img(payload)
+    return job_queue.run_sync(payload)
 
-    job_id = uuid.uuid4().hex[:12]
-    image_path = RUNS_DIR / f"{job_id}.png"
-    image_path.write_bytes(image_bytes)
-
-    response_meta = meta or {}
-    if isinstance(response_meta, dict):
-        response_meta.setdefault("codex_settings", generation_context)
-
-    return {
-        "id": job_id,
-        "image_url": f"/runs/{job_id}.png",
-        "meta": response_meta,
-        "settings": generation_context,
-    }
 
 

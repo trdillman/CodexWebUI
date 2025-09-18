@@ -37,7 +37,9 @@ function GenerateTab() {
     generate,
     generating,
     generateError,
+    jobs,
   } = useAppState();
+  const { setActiveTab } = useLobeSettings();
   const modelsAvailable = models?.count > 0;
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [negativePrompt, setNegativePrompt] = useState(DEFAULT_NEGATIVE);
@@ -50,7 +52,7 @@ function GenerateTab() {
     return initial;
   });
   const [modelName, setModelName] = useState(null);
-  const [statusMessage, setStatusMessage] = useState(null);
+  const [status, setStatus] = useState(null);
 
   useEffect(() => {
     if (!modelsAvailable) {
@@ -65,20 +67,24 @@ function GenerateTab() {
 
   useEffect(() => {
     if (!generateError) {
-      setStatusMessage(null);
       return;
     }
-    setStatusMessage(generateError.message || "Generation failed");
+    setStatus({ tone: "error", message: generateError.message || "Generation failed" });
   }, [generateError]);
 
   const onParamChange = (id, value) => {
     setParams((prev) => ({ ...prev, [id]: value }));
   };
 
+  const activeJobsCount = useMemo(
+    () => jobs.filter((job) => job.status === "queued" || job.status === "running").length,
+    [jobs],
+  );
+
   const onGenerate = async () => {
-    setStatusMessage(null);
+    setStatus(null);
     if (!prompt.trim()) {
-      setStatusMessage("Prompt cannot be empty");
+      setStatus({ tone: "error", message: "Prompt cannot be empty" });
       return;
     }
     try {
@@ -91,8 +97,9 @@ function GenerateTab() {
         sampler_name: scheduler,
         model: modelName || undefined,
       });
+      setStatus({ tone: "success", message: "Job queued. Monitor progress in the Queue tab." });
     } catch (error) {
-      setStatusMessage(error.message || "Generation failed");
+      setStatus({ tone: "error", message: error.message || "Generation failed" });
     }
   };
 
@@ -116,9 +123,12 @@ function GenerateTab() {
         </div>
       )}
 
-      {statusMessage && (
-        <div className="lobe-alert lobe-alert--error" role="alert">
-          {statusMessage}
+      {status && (
+        <div
+          className={`lobe-alert ${status.tone === "success" ? "lobe-alert--success" : "lobe-alert--error"}`}
+          role="alert"
+        >
+          {status.message}
         </div>
       )}
 
@@ -245,8 +255,12 @@ function GenerateTab() {
         >
           {generating ? "Generating..." : "Generate"}
         </button>
-        <button type="button" className="lobe-button" disabled>
-          Queue (soon)
+        <button
+          type="button"
+          className="lobe-button"
+          onClick={() => setActiveTab("history")}
+        >
+          {`View Queue (${activeJobsCount})`}
         </button>
         <button
           type="button"
@@ -261,6 +275,7 @@ function GenerateTab() {
               });
               return reset;
             });
+            setStatus(null);
           }}
           disabled={generating}
         >
@@ -650,30 +665,94 @@ function ExtensionsTab() {
 
 
 function HistoryTab() {
-  const { history } = useAppState();
+  const { jobs, cancelJob } = useAppState();
+
+  const activeJobs = useMemo(
+    () => jobs.filter((job) => job.status === "queued" || job.status === "running"),
+    [jobs],
+  );
+  const recentJobs = useMemo(
+    () =>
+      jobs
+        .filter((job) => job.status === "done" || job.status === "error")
+        .slice(0, 20),
+    [jobs],
+  );
+
   return (
     <section className="lobe-workspace lobe-scroll">
       <header className="lobe-section-header">
         <h2>{TAB_COPY.history.title}</h2>
         <p>{TAB_COPY.history.subtitle}</p>
       </header>
-      {history.length === 0 ? (
-        <div className="lobe-card">
-          <p>No generations yet. Run a prompt to populate history.</p>
-        </div>
-      ) : (
-        <ul className="lobe-history">
-          {history.map((job) => (
-            <li key={job.clientId} className={`lobe-history__item is-${job.status}`}>
-              <div>
-                <strong>{job.prompt}</strong>
-                {job.negativePrompt ? <span className="lobe-history__meta"> – {job.negativePrompt}</span> : null}
-              </div>
-              <span className="lobe-history__meta">{job.status}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="lobe-grid lobe-grid--queue">
+        <article className="lobe-card">
+          <header>
+            <h3>Active Jobs</h3>
+            <p>Queued and running requests with best-effort cancellation.</p>
+          </header>
+          {activeJobs.length === 0 ? (
+            <p className="lobe-empty">No active jobs.</p>
+          ) : (
+            <ul className="lobe-queue">
+              {activeJobs.map((job) => (
+                <li key={job.id} className="lobe-queue__item">
+                  <div className="lobe-queue__details">
+                    <strong>{job.prompt}</strong>
+                    {job.negativePrompt ? (
+                      <span className="lobe-history__meta"> – {job.negativePrompt}</span>
+                    ) : null}
+                  </div>
+                  <div className="lobe-progress">
+                    <div className="lobe-progress__track">
+                      <div
+                        className="lobe-progress__bar"
+                        style={{ width: `${Math.min(job.progress ?? 0, 100)}%` }}
+                      />
+                    </div>
+                    <span className="lobe-progress__value">{Math.round(job.progress ?? 0)}%</span>
+                  </div>
+                  <div className="lobe-queue__actions">
+                    <button
+                      type="button"
+                      className="lobe-button lobe-button--mini"
+                      onClick={() => cancelJob(job.id).catch(() => undefined)}
+                      disabled={job.status !== "queued" && job.status !== "running"}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+        <article className="lobe-card">
+          <header>
+            <h3>Recent Jobs</h3>
+            <p>Completed and errored jobs, newest first.</p>
+          </header>
+          {recentJobs.length === 0 ? (
+            <p className="lobe-empty">No completed jobs yet.</p>
+          ) : (
+            <ul className="lobe-history">
+              {recentJobs.map((job) => (
+                <li key={job.id} className={`lobe-history__item is-${job.status}`}>
+                  <div>
+                    <strong>{job.prompt}</strong>
+                    {job.negativePrompt ? (
+                      <span className="lobe-history__meta"> – {job.negativePrompt}</span>
+                    ) : null}
+                  </div>
+                  <span className="lobe-history__meta">
+                    {job.status === "done" ? "Completed" : job.error || "Error"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+      </div>
     </section>
   );
 }
@@ -693,6 +772,14 @@ export function Workspace() {
 
   return <GenerateTab />;
 }
+
+
+
+
+
+
+
+
 
 
 
