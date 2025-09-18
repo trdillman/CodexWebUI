@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import copy
 import json
@@ -57,3 +57,4 @@ def save_settings(data: Dict[str, Any]) -> None:
     SETTINGS_PATH.write_text(
         json.dumps(normalized, indent=2, sort_keys=True), encoding="utf-8"
     )
+

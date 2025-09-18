@@ -290,6 +290,7 @@ function SettingsTab() {
   const { capabilities, settings, saveSettings, settingsSaving, settingsError } = useAppState();
   const [draft, setDraft] = useState(settings);
   const [saveMessage, setSaveMessage] = useState(null);
+  const [showRelaunchHint, setShowRelaunchHint] = useState(false);
 
   useEffect(() => {
     setDraft(settings);
@@ -309,14 +310,6 @@ function SettingsTab() {
       </section>
     );
   }
-
-  const updateDraft = (updater) => {
-    setDraft((prev) => {
-      const next = JSON.parse(JSON.stringify(prev ?? {}));
-      updater(next);
-      return next;
-    });
-  };
 
   const backendOptions = [
     { id: "triton", label: "Triton" },
@@ -338,15 +331,32 @@ function SettingsTab() {
   const backendCapability = capabilities?.backends ?? {};
   const extras = capabilities?.extras ?? {};
 
+  const deepEqual = (left, right) => JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+  const relaunchRequired = useMemo(() => {
+    if (!settings) return false;
+    return !deepEqual(draft.compile, settings.compile) || !deepEqual(draft.quantize, settings.quantize);
+  }, [draft, settings]);
+
   const onSubmit = async (event) => {
     event.preventDefault();
     setSaveMessage(null);
     try {
       await saveSettings(draft);
       setSaveMessage("Settings saved");
+      if (relaunchRequired) {
+        setShowRelaunchHint(true);
+      }
     } catch (error) {
       setSaveMessage(error.message || "Unable to save settings");
     }
+  };
+
+  const updateDraft = (updater) => {
+    setDraft((prev) => {
+      const next = JSON.parse(JSON.stringify(prev ?? {}));
+      updater(next);
+      return next;
+    });
   };
 
   const buildQuantizeLabel = (option) => {
@@ -375,6 +385,17 @@ function SettingsTab() {
       {saveMessage && (
         <div className={`lobe-alert ${settingsError ? "lobe-alert--error" : "lobe-alert--success"}`}>
           {saveMessage}
+        </div>
+      )}
+      {relaunchRequired && (
+        <div className="lobe-alert lobe-alert--warning" role="alert">
+          Compile or quantization changes require restarting SD.Next. After saving, run{' '}
+          <code>.\scripts\sdnext_stop.ps1</code>{' '}followed by{' '}<code>.\scripts\sdnext_run.ps1</code>{' '}to apply the new settings.
+        </div>
+      )}
+      {showRelaunchHint && !relaunchRequired && (
+        <div className="lobe-alert lobe-alert--success">
+          Backend restart instructions applied. Run the restart scripts when you are ready.
         </div>
       )}
       <form className="lobe-form" onSubmit={onSubmit}>
@@ -408,12 +429,7 @@ function SettingsTab() {
             {backendOptions.map((option) => {
               const supported = backendCapability?.[option.id];
               return (
-                <option
-                  key={option.id}
-                  value={option.id}
-                  disabled={!supported}
-                  title={!supported ? "Backend not detected" : undefined}
-                >
+                <option key={option.id} value={option.id} disabled={!supported}>
                   {option.label} {supported ? "" : "(unsupported)"}
                 </option>
               );
@@ -502,20 +518,26 @@ function SettingsTab() {
               />
               <span>SDPA</span>
             </label>
-            <label className="lobe-switch">
+            <label className={`lobe-switch ${!extras.chroma ? "is-disabled" : ""}`}>
               <input
                 type="checkbox"
-                checked={Boolean(draft.ui?.mobile_compact)}
+                checked={Boolean(draft.features?.chroma)}
                 onChange={(event) =>
                   updateDraft((next) => {
-                    next.ui = next.ui || {};
-                    next.ui.mobile_compact = event.target.checked;
+                    next.features = next.features || {};
+                    next.features.chroma = event.target.checked;
                   })
                 }
+                disabled={!extras.chroma}
               />
-              <span>Mobile compact mode</span>
+              <span>Chroma models</span>
             </label>
           </div>
+          {!extras.chroma && (
+            <p className="lobe-help-text">
+              Chroma support was not detected in this environment.
+            </p>
+          )}
         </section>
 
         <footer className="lobe-actions">
@@ -534,10 +556,7 @@ function SettingsTab() {
       </form>
     </section>
   );
-}
-
-
-function ExtensionsTab() {
+}function ExtensionsTab() {
   const { extensions, extensionsError, apiBase, refreshExtensions } = useAppState();
   const [selectedName, setSelectedName] = useState(() => (extensions?.[0]?.name ?? null));
   const [refreshing, setRefreshing] = useState(false);
@@ -700,7 +719,7 @@ function HistoryTab() {
                   <div className="lobe-queue__details">
                     <strong>{job.prompt}</strong>
                     {job.negativePrompt ? (
-                      <span className="lobe-history__meta"> – {job.negativePrompt}</span>
+                      <span className="lobe-history__meta"> - {job.negativePrompt}</span>
                     ) : null}
                   </div>
                   <div className="lobe-progress">
@@ -741,7 +760,7 @@ function HistoryTab() {
                   <div>
                     <strong>{job.prompt}</strong>
                     {job.negativePrompt ? (
-                      <span className="lobe-history__meta"> – {job.negativePrompt}</span>
+                      <span className="lobe-history__meta"> - {job.negativePrompt}</span>
                     ) : null}
                   </div>
                   <span className="lobe-history__meta">
@@ -772,6 +791,8 @@ export function Workspace() {
 
   return <GenerateTab />;
 }
+
+
 
 
 
