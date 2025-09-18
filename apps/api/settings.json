@@ -1,0 +1,23 @@
+{
+  "attention": {
+    "sage": true
+  },
+  "compile": {
+    "backend": "triton",
+    "enabled": true
+  },
+  "model": {
+    "name": null
+  },
+  "performance": {
+    "sdpa": true,
+    "xformers": false
+  },
+  "quantize": {
+    "method": null,
+    "params": {}
+  },
+  "ui": {
+    "mobile_compact": true
+  }
+}
