@@ -43,3 +43,7 @@ All SD assets live under `workspace/models/`:
 - `workspace/models/upscale_models/` for upscalers (`.pth`, `.safetensors`)
 
 Drop your downloaded files into the matching folder; scripts and the managed adapter discover them automatically.
+Run the managed SD.Next backend setup once before launching:
+```powershell
+PowerShell -ExecutionPolicy Bypass -File .\scripts\sdnext_setup.ps1
+```
